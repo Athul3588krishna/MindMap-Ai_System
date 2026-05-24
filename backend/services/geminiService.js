@@ -37,6 +37,19 @@ async function generateWithGemini(prompt) {
     const message = data?.error?.message || "Gemini request failed";
     const error = new Error(message);
     error.status = response.status;
+    error.code = data?.error?.status || "GEMINI_REQUEST_FAILED";
+
+    if (
+      response.status === 429 ||
+      error.code === "RESOURCE_EXHAUSTED" ||
+      /quota|rate limit|exceeded/i.test(message)
+    ) {
+      error.status = 429;
+      error.code = "GEMINI_LIMIT_REACHED";
+      error.message =
+        "Gemini free-tier limit reached. Please wait and try again later, or use a different API key.";
+    }
+
     throw error;
   }
 

@@ -131,6 +131,7 @@ function App() {
   const [doubtQuestion, setDoubtQuestion] = useState('')
   const [doubtAnswer, setDoubtAnswer] = useState('')
   const [aiLoading, setAiLoading] = useState('')
+  const [aiWarning, setAiWarning] = useState('')
 
   const selectedSubject = subjects.find((subject) => subjectId(subject) === selectedSubjectId) || subjects[0]
   const selectedModules = selectedSubject?.modules?.length ? selectedSubject.modules : ['Module 1']
@@ -293,6 +294,7 @@ function App() {
 
     setAiLoading('notes')
     setError('')
+    setAiWarning('')
 
     try {
       const data = await api.generateNotes({
@@ -301,7 +303,11 @@ function App() {
       })
       setAiNotes(data.notes || '')
     } catch (notesError) {
-      setError(notesError.message)
+      if (notesError.code === 'GEMINI_LIMIT_REACHED' || notesError.status === 429) {
+        setAiWarning(notesError.message)
+      } else {
+        setError(notesError.message)
+      }
     } finally {
       setAiLoading('')
     }
@@ -312,6 +318,7 @@ function App() {
 
     setAiLoading('doubt')
     setError('')
+    setAiWarning('')
 
     try {
       const data = await api.solveDoubt({
@@ -320,7 +327,11 @@ function App() {
       })
       setDoubtAnswer(data.answer || '')
     } catch (doubtError) {
-      setError(doubtError.message)
+      if (doubtError.code === 'GEMINI_LIMIT_REACHED' || doubtError.status === 429) {
+        setAiWarning(doubtError.message)
+      } else {
+        setError(doubtError.message)
+      }
     } finally {
       setAiLoading('')
     }
@@ -414,6 +425,7 @@ function App() {
         </header>
 
         {error && <p className="error-banner">{error}</p>}
+        {aiWarning && <p className="warning-banner">{aiWarning}</p>}
         {loading && <p className="muted">Syncing data...</p>}
 
         {activeView === 'dashboard' && (
