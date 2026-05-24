@@ -7,11 +7,18 @@ exports.listSubjects = async (req, res, next) => {
     const topics = await Topic.find({ user: req.user._id });
 
     const enriched = subjects.map((subject) => {
-      const subjectTopics = topics.filter((topic) => String(topic.subject) === String(subject._id));
+      const subjectTopics = topics
+        .filter((topic) => String(topic.subject) === String(subject._id))
+        .map((topic) => ({
+          ...topic.toObject(),
+          moduleName: topic.moduleName || "Module 1",
+        }));
       const completed = subjectTopics.filter((topic) => topic.completed).length;
+      const modules = [...new Set(subjectTopics.map((topic) => topic.moduleName || "Module 1"))];
       return {
         ...subject.toObject(),
         topics: subjectTopics,
+        modules,
         completion:
           subjectTopics.length === 0 ? 0 : Math.round((completed / subjectTopics.length) * 100),
       };
@@ -69,6 +76,7 @@ exports.createTopic = async (req, res, next) => {
 
     const topic = await Topic.create({
       ...req.body,
+      moduleName: req.body.moduleName || "Module 1",
       subject: subject._id,
       user: req.user._id,
     });

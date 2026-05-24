@@ -33,6 +33,15 @@ function completion(subject) {
   return Math.round((subject.topics.filter((topic) => topic.completed).length / subject.topics.length) * 100)
 }
 
+function groupTopicsByModule(topics = []) {
+  return topics.reduce((groups, topic) => {
+    const moduleName = topic.moduleName || 'Module 1'
+    if (!groups[moduleName]) groups[moduleName] = []
+    groups[moduleName].push(topic)
+    return groups
+  }, {})
+}
+
 function AuthScreen({ onAuth }) {
   const [form, setForm] = useState({ email: 'admin@mindmap.com', password: 'admin123' })
   const [error, setError] = useState('')
@@ -108,6 +117,7 @@ function App() {
     priority: 'Medium',
   })
   const [topicForm, setTopicForm] = useState({
+    moduleName: 'Module 1',
     title: '',
     difficulty: 'Medium',
     estimatedHours: 2,
@@ -123,6 +133,8 @@ function App() {
   const [aiLoading, setAiLoading] = useState('')
 
   const selectedSubject = subjects.find((subject) => subjectId(subject) === selectedSubjectId) || subjects[0]
+  const selectedModules = selectedSubject?.modules?.length ? selectedSubject.modules : ['Module 1']
+  const groupedTopics = groupTopicsByModule(selectedSubject?.topics || [])
 
   const stats = useMemo(() => {
     const allTopics = subjects.flatMap((subject) => subject.topics || [])
@@ -205,9 +217,10 @@ function App() {
 
     await api.createTopic(subjectId(selectedSubject), {
       ...topicForm,
+      moduleName: topicForm.moduleName.trim() || 'Module 1',
       estimatedHours: Number(topicForm.estimatedHours),
     })
-    setTopicForm({ title: '', difficulty: 'Medium', estimatedHours: 2 })
+    setTopicForm({ ...topicForm, title: '', estimatedHours: 2 })
     await loadData()
   }
 
@@ -260,6 +273,7 @@ function App() {
       await api.importSyllabus({
         subjectId: subjectId(selectedSubject),
         text: syllabusText,
+        moduleName: topicForm.moduleName.trim() || 'Imported syllabus',
         difficulty: topicForm.difficulty,
         estimatedHours: Number(topicForm.estimatedHours),
       })
@@ -435,7 +449,7 @@ function App() {
                     <span className="task-icon">{session.type === 'Revision' ? 'R' : 'S'}</span>
                     <div>
                       <strong>{session.topic}</strong>
-                      <small>{session.subject} - {session.hours}h - {session.difficulty}</small>
+                      <small>{session.subject} - {session.moduleName || 'Module 1'} - {session.hours}h - {session.difficulty}</small>
                     </div>
                   </article>
                 ))}
@@ -516,7 +530,18 @@ function App() {
                       <button className="danger" type="button" onClick={() => deleteSubject(subjectId(selectedSubject))}>Delete</button>
                     </div>
                     <input
-                      placeholder="Topic or module"
+                      list="module-options"
+                      placeholder="Module name"
+                      value={topicForm.moduleName}
+                      onChange={(event) => setTopicForm({ ...topicForm, moduleName: event.target.value })}
+                    />
+                    <datalist id="module-options">
+                      {selectedModules.map((moduleName) => (
+                        <option key={moduleName} value={moduleName} />
+                      ))}
+                    </datalist>
+                    <input
+                      placeholder="Topic name"
                       value={topicForm.title}
                       onChange={(event) => setTopicForm({ ...topicForm, title: event.target.value })}
                     />
@@ -571,17 +596,25 @@ function App() {
             <div className="wide-panel full-span">
               <h2>{selectedSubject?.name || 'Topics'}</h2>
               <div className="topic-table">
-                {(selectedSubject?.topics || []).map((topic) => (
-                  <label key={topicId(topic)} className={topic.completed ? 'topic-row done' : 'topic-row'}>
-                    <input
-                      type="checkbox"
-                      checked={topic.completed}
-                      onChange={() => toggleTopic(selectedSubject, topic)}
-                    />
-                    <span>{topic.title}</span>
-                    <small>{topic.difficulty}</small>
-                    <em>{topic.estimatedHours}h</em>
-                  </label>
+                {Object.entries(groupedTopics).map(([moduleName, moduleTopics]) => (
+                  <section className="module-group" key={moduleName}>
+                    <div className="module-head">
+                      <strong>{moduleName}</strong>
+                      <span>{moduleTopics.filter((topic) => topic.completed).length}/{moduleTopics.length} complete</span>
+                    </div>
+                    {moduleTopics.map((topic) => (
+                      <label key={topicId(topic)} className={topic.completed ? 'topic-row done' : 'topic-row'}>
+                        <input
+                          type="checkbox"
+                          checked={topic.completed}
+                          onChange={() => toggleTopic(selectedSubject, topic)}
+                        />
+                        <span>{topic.title}</span>
+                        <small>{topic.difficulty}</small>
+                        <em>{topic.estimatedHours}h</em>
+                      </label>
+                    ))}
+                  </section>
                 ))}
                 {selectedSubject && !selectedSubject.topics?.length && <p className="empty-state">No topics added for this subject.</p>}
               </div>
@@ -641,7 +674,7 @@ function App() {
                       <span className="task-icon">{session.type === 'Revision' ? 'R' : 'S'}</span>
                       <div>
                         <strong>{session.topic}</strong>
-                        <small>{session.subject} - {session.hours}h</small>
+                        <small>{session.subject} - {session.moduleName || 'Module 1'} - {session.hours}h</small>
                       </div>
                     </div>
                   ))}

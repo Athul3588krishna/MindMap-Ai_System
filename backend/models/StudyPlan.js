@@ -24,6 +24,7 @@ const studyPlanSchema = new mongoose.Schema(
         sessions: [
           {
             subject: String,
+            moduleName: String,
             topic: String,
             difficulty: String,
             hours: Number,

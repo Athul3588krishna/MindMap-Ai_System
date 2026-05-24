@@ -37,7 +37,7 @@ exports.preview = (req, res) => {
 
 exports.importTopics = async (req, res, next) => {
   try {
-    const { subjectId, text, difficulty = "Medium", estimatedHours = 2 } = req.body;
+    const { subjectId, text, moduleName = "Imported syllabus", difficulty = "Medium", estimatedHours = 2 } = req.body;
 
     if (!subjectId) {
       return res.status(400).json({ message: "Subject is required" });
@@ -59,6 +59,7 @@ exports.importTopics = async (req, res, next) => {
       .filter((title) => !existingTitles.has(title.toLowerCase()))
       .map((title) => ({
         title,
+        moduleName,
         difficulty,
         estimatedHours: Number(estimatedHours),
         subject: subject._id,

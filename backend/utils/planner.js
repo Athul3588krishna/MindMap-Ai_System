@@ -36,6 +36,7 @@ function generateStudyPlan(subjects, topics, dailyStudyHours) {
 
       return {
         subject: subject?.name || "General",
+        moduleName: topic.moduleName || "Module 1",
         topic: topic.title,
         difficulty: topic.difficulty,
         remainingHours: Number(topic.estimatedHours),
@@ -61,6 +62,7 @@ function generateStudyPlan(subjects, topics, dailyStudyHours) {
 
       sessions.push({
         subject: item.subject,
+        moduleName: item.moduleName,
         topic: item.topic,
         difficulty: item.difficulty,
         hours,

@@ -479,6 +479,27 @@ select option {
   gap: 8px;
 }
 
+.module-group {
+  display: grid;
+  gap: 8px;
+}
+
+.module-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: rgba(45, 212, 191, 0.12);
+  color: #dffcf8;
+}
+
+.module-head span {
+  color: #aab4c8;
+  font-size: 13px;
+  font-weight: 800;
+}
+
 .topic-row {
   grid-template-columns: auto 1fr 110px 52px;
 }

@@ -15,7 +15,7 @@ async function getSubjectContext(userId, subjectId) {
       ? topics
           .map(
             (topic, index) =>
-              `${index + 1}. ${topic.title} (${topic.difficulty}, ${topic.estimatedHours}h, ${
+              `${index + 1}. ${topic.moduleName || "Module 1"} - ${topic.title} (${topic.difficulty}, ${topic.estimatedHours}h, ${
                 topic.completed ? "completed" : "pending"
               })`
           )

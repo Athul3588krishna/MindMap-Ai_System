@@ -19,6 +19,11 @@ const topicSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    moduleName: {
+      type: String,
+      default: "Module 1",
+      trim: true,
+    },
     difficulty: {
       type: String,
       enum: ["Easy", "Medium", "Hard"],
