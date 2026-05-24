@@ -8,6 +8,47 @@
   color: #eef2ff;
 }
 
+.auth-screen {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background:
+    radial-gradient(circle at top left, rgba(45, 212, 191, 0.12), transparent 28rem),
+    linear-gradient(135deg, #10151f 0%, #151925 48%, #18131d 100%);
+  color: #eef2ff;
+}
+
+.login-card {
+  width: min(420px, 100%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 24px;
+  background: rgba(255, 255, 255, 0.065);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.2);
+}
+
+.auth-brand {
+  margin-bottom: 22px;
+}
+
+.auth-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.auth-tabs button.active {
+  background: #2dd4bf;
+  color: #07111f;
+}
+
+.auth-form {
+  display: grid;
+  gap: 12px;
+}
+
 .sidebar {
   min-height: 100vh;
   padding: 24px;
@@ -53,6 +94,24 @@
 .day-plan small,
 .chart-panel p {
   color: #aab4c8;
+}
+
+.muted,
+.empty-state {
+  margin: 0;
+  color: #aab4c8;
+}
+
+.error-text,
+.error-banner {
+  color: #fecaca;
+}
+
+.error-banner {
+  border: 1px solid rgba(248, 113, 113, 0.3);
+  border-radius: 8px;
+  padding: 12px 14px;
+  background: rgba(248, 113, 113, 0.12);
 }
 
 .sidebar nav {
@@ -161,7 +220,8 @@ h2 {
 }
 
 input,
-select {
+select,
+textarea {
   width: 100%;
   box-sizing: border-box;
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -170,6 +230,49 @@ select {
   background: rgba(4, 8, 15, 0.55);
   color: #eef2ff;
   font: inherit;
+}
+
+textarea {
+  resize: vertical;
+  min-height: 132px;
+}
+
+.file-picker {
+  min-height: 44px;
+  display: grid;
+  place-items: center;
+  border: 1px dashed rgba(255, 255, 255, 0.24);
+  border-radius: 8px;
+  padding: 12px;
+  color: #dbeafe;
+  background: rgba(255, 255, 255, 0.06);
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.file-picker input {
+  display: none;
+}
+
+.inline-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.preview-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.preview-list span,
+.preview-list small {
+  border-radius: 8px;
+  padding: 7px 9px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #dbeafe;
+  font-size: 13px;
 }
 
 select option {

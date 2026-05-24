@@ -4,7 +4,9 @@ async function connectDB() {
   const mongoUri = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/mindmap_ai";
 
   try {
-    await mongoose.connect(mongoUri);
+    await mongoose.connect(mongoUri, {
+      serverSelectionTimeoutMS: 5000,
+    });
     console.log("MongoDB connected");
   } catch (error) {
     console.error("MongoDB connection failed:", error.message);

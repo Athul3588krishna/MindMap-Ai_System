@@ -1,117 +1,129 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { createWorker } from 'tesseract.js'
+import { api } from './services/api'
 import './App.css'
 
-const today = new Date()
+const tokenKey = 'mindmap_token'
+const palette = ['#2dd4bf', '#f59e0b', '#60a5fa', '#f472b6', '#a3e635']
 
-const initialSubjects = [
-  {
-    id: 's1',
-    name: 'Advanced Computer Networks',
-    examDate: '2026-06-25',
-    priority: 'High',
-    color: '#2dd4bf',
-    topics: [
-      { id: 't1', title: 'TCP/IP', difficulty: 'Medium', estimatedHours: 3, completed: false },
-      { id: 't2', title: 'DNS and routing', difficulty: 'Easy', estimatedHours: 2, completed: true },
-      { id: 't3', title: 'Congestion control', difficulty: 'Hard', estimatedHours: 5, completed: false },
-    ],
-  },
-  {
-    id: 's2',
-    name: 'Data Mining',
-    examDate: '2026-06-18',
-    priority: 'Medium',
-    color: '#f59e0b',
-    topics: [
-      { id: 't4', title: 'Classification', difficulty: 'Medium', estimatedHours: 4, completed: true },
-      { id: 't5', title: 'Clustering', difficulty: 'Hard', estimatedHours: 5, completed: false },
-    ],
-  },
-  {
-    id: 's3',
-    name: 'Software Engineering',
-    examDate: '2026-07-03',
-    priority: 'Low',
-    color: '#60a5fa',
-    topics: [
-      { id: 't6', title: 'Agile models', difficulty: 'Easy', estimatedHours: 2, completed: false },
-      { id: 't7', title: 'Testing strategies', difficulty: 'Medium', estimatedHours: 3, completed: false },
-    ],
-  },
-]
+function subjectId(subject) {
+  return subject._id || subject.id
+}
 
-const difficultyWeight = { Easy: 1, Medium: 1.25, Hard: 1.7 }
-const priorityWeight = { Low: 1, Medium: 1.2, High: 1.5 }
+function topicId(topic) {
+  return topic._id || topic.id
+}
+
+function formatDate(date) {
+  if (!date) return ''
+  return new Date(date).toISOString().slice(0, 10)
+}
 
 function daysLeft(date) {
-  const target = new Date(`${date}T00:00:00`)
-  return Math.max(1, Math.ceil((target - today) / 86400000))
+  if (!date) return 0
+  const target = new Date(`${formatDate(date)}T00:00:00`)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  return Math.max(0, Math.ceil((target - today) / 86400000))
 }
 
 function completion(subject) {
-  if (!subject.topics.length) return 0
+  if (typeof subject.completion === 'number') return subject.completion
+  if (!subject.topics?.length) return 0
   return Math.round((subject.topics.filter((topic) => topic.completed).length / subject.topics.length) * 100)
 }
 
-function makePlan(subjects, dailyHours) {
-  const queue = subjects
-    .flatMap((subject) =>
-      subject.topics
-        .filter((topic) => !topic.completed)
-        .map((topic) => ({
-          subject: subject.name,
-          topic: topic.title,
-          difficulty: topic.difficulty,
-          remaining: topic.estimatedHours,
-          score:
-            difficultyWeight[topic.difficulty] *
-            priorityWeight[subject.priority] *
-            (1 + 18 / daysLeft(subject.examDate)),
-        })),
-    )
-    .sort((a, b) => b.score - a.score)
+function AuthScreen({ onAuth }) {
+  const [mode, setMode] = useState('login')
+  const [form, setForm] = useState({ name: '', email: '', password: '' })
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
 
-  const days = []
-  let day = 0
+  async function submitAuth(event) {
+    event.preventDefault()
+    setError('')
+    setLoading(true)
 
-  while (queue.some((item) => item.remaining > 0) && day < 21) {
-    let capacity = dailyHours
-    const sessions = []
-
-    for (const item of queue) {
-      if (capacity <= 0 || item.remaining <= 0) continue
-      const hours = Math.min(capacity, item.remaining, item.difficulty === 'Hard' ? 2 : 1.5)
-      item.remaining = Number((item.remaining - hours).toFixed(1))
-      capacity = Number((capacity - hours).toFixed(1))
-      sessions.push({ ...item, hours, type: 'Study' })
+    try {
+      const payload =
+        mode === 'register'
+          ? form
+          : {
+              email: form.email,
+              password: form.password,
+            }
+      const data = mode === 'register' ? await api.register(payload) : await api.login(payload)
+      localStorage.setItem(tokenKey, data.token)
+      onAuth(data.user)
+    } catch (authError) {
+      setError(authError.message)
+    } finally {
+      setLoading(false)
     }
-
-    if (day > 0 && day % 3 === 0 && sessions.length) {
-      sessions.push({
-        subject: 'Revision',
-        topic: 'Active recall and formula review',
-        difficulty: 'Medium',
-        hours: 1,
-        type: 'Revision',
-      })
-    }
-
-    if (sessions.length) days.push({ label: day === 0 ? 'Today' : `Day ${day + 1}`, sessions })
-    day += 1
   }
 
-  return days
+  return (
+    <main className="auth-screen">
+      <section className="login-card">
+        <div className="brand auth-brand">
+          <span className="brand-mark">M</span>
+          <div>
+            <strong>MindMap AI</strong>
+            <small>Study planner</small>
+          </div>
+        </div>
+        <div className="auth-tabs">
+          <button className={mode === 'login' ? 'active' : ''} type="button" onClick={() => setMode('login')}>
+            Login
+          </button>
+          <button className={mode === 'register' ? 'active' : ''} type="button" onClick={() => setMode('register')}>
+            Register
+          </button>
+        </div>
+        <form className="auth-form" onSubmit={submitAuth}>
+          {mode === 'register' && (
+            <input
+              placeholder="Name"
+              value={form.name}
+              onChange={(event) => setForm({ ...form, name: event.target.value })}
+            />
+          )}
+          <input
+            placeholder="Email"
+            type="email"
+            value={form.email}
+            onChange={(event) => setForm({ ...form, email: event.target.value })}
+          />
+          <input
+            placeholder="Password"
+            type="password"
+            value={form.password}
+            onChange={(event) => setForm({ ...form, password: event.target.value })}
+          />
+          {error && <p className="error-text">{error}</p>}
+          <button disabled={loading} type="submit">
+            {loading ? 'Please wait...' : mode}
+          </button>
+        </form>
+      </section>
+    </main>
+  )
 }
 
 function App() {
-  const [user, setUser] = useState({ name: 'Aarav Student', email: 'aarav@example.com', streak: 7 })
-  const [subjects, setSubjects] = useState(initialSubjects)
+  const [user, setUser] = useState(null)
+  const [booting, setBooting] = useState(true)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [subjects, setSubjects] = useState([])
+  const [analytics, setAnalytics] = useState(null)
+  const [plan, setPlan] = useState(null)
   const [activeView, setActiveView] = useState('dashboard')
   const [dailyHours, setDailyHours] = useState(3)
-  const [selectedSubjectId, setSelectedSubjectId] = useState(initialSubjects[0].id)
+  const [selectedSubjectId, setSelectedSubjectId] = useState('')
   const [subjectForm, setSubjectForm] = useState({
     name: '',
-    examDate: '2026-06-30',
+    examDate: formatDate(new Date()),
     priority: 'Medium',
   })
   const [topicForm, setTopicForm] = useState({
@@ -119,117 +131,196 @@ function App() {
     difficulty: 'Medium',
     estimatedHours: 2,
   })
-  const [notes, setNotes] = useState([
-    { id: 'n1', title: 'Network layer summary.pdf', subject: 'Advanced Computer Networks' },
-  ])
-  const [noteForm, setNoteForm] = useState({ title: '', subject: initialSubjects[0].name })
+  const [syllabusText, setSyllabusText] = useState('')
+  const [syllabusTopics, setSyllabusTopics] = useState([])
+  const [ocrStatus, setOcrStatus] = useState('')
+  const [syllabusImporting, setSyllabusImporting] = useState(false)
 
-  const selectedSubject = subjects.find((subject) => subject.id === selectedSubjectId) || subjects[0]
+  const selectedSubject = subjects.find((subject) => subjectId(subject) === selectedSubjectId) || subjects[0]
 
   const stats = useMemo(() => {
-    const allTopics = subjects.flatMap((subject) => subject.topics)
-    const totalHours = allTopics.reduce((sum, topic) => sum + Number(topic.estimatedHours), 0)
-    const completedHours = allTopics
-      .filter((topic) => topic.completed)
-      .reduce((sum, topic) => sum + Number(topic.estimatedHours), 0)
-    const overall = totalHours ? Math.round((completedHours / totalHours) * 100) : 0
-    const weakSubjects = subjects
-      .map((subject) => ({
-        ...subject,
-        progress: completion(subject),
-        hardPending: subject.topics.filter((topic) => topic.difficulty === 'Hard' && !topic.completed).length,
-      }))
-      .filter((subject) => subject.progress < 50 || subject.hardPending)
-      .sort((a, b) => a.progress - b.progress || daysLeft(a.examDate) - daysLeft(b.examDate))
-
+    const allTopics = subjects.flatMap((subject) => subject.topics || [])
     return {
       allTopics,
-      totalHours,
-      completedHours,
-      overall,
-      weakSubjects,
-      upcoming: [...subjects].sort((a, b) => new Date(a.examDate) - new Date(b.examDate)),
+      totalHours: analytics?.stats?.totalHours || 0,
+      completedHours: analytics?.stats?.completedHours || 0,
+      overall: analytics?.stats?.overallProgress || 0,
+      weakSubjects: analytics?.weakSubjects || [],
+      upcoming: analytics?.upcomingExams || [],
     }
-  }, [subjects])
+  }, [analytics, subjects])
 
-  const plan = useMemo(() => makePlan(subjects, Number(dailyHours)), [subjects, dailyHours])
+  async function loadData() {
+    setLoading(true)
+    setError('')
 
-  function handleLogin(event) {
-    event.preventDefault()
-    const form = new FormData(event.currentTarget)
-    setUser({
-      name: form.get('name') || 'MindMap Learner',
-      email: form.get('email') || 'student@example.com',
-      streak: user.streak,
-    })
+    try {
+      const [subjectData, analyticsData, planData] = await Promise.all([
+        api.getSubjects(),
+        api.getAnalytics(),
+        api.getLatestPlan(),
+      ])
+      const loadedSubjects = subjectData.subjects || []
+      setSubjects(loadedSubjects)
+      setAnalytics(analyticsData)
+      setPlan(planData.plan)
+      setSelectedSubjectId((current) => current || subjectId(loadedSubjects[0]) || '')
+    } catch (loadError) {
+      setError(loadError.message)
+    } finally {
+      setLoading(false)
+    }
   }
 
-  function addSubject(event) {
+  useEffect(() => {
+    async function boot() {
+      const token = localStorage.getItem(tokenKey)
+      if (!token) {
+        setBooting(false)
+        return
+      }
+
+      try {
+        const data = await api.me()
+        setUser(data.user)
+        setDailyHours(data.user.dailyStudyHours || 3)
+        await loadData()
+      } catch {
+        localStorage.removeItem(tokenKey)
+      } finally {
+        setBooting(false)
+      }
+    }
+
+    boot()
+  }, [])
+
+  async function handleAuthenticated(authUser) {
+    setUser(authUser)
+    setDailyHours(authUser.dailyStudyHours || 3)
+    await loadData()
+  }
+
+  async function addSubject(event) {
     event.preventDefault()
     if (!subjectForm.name.trim()) return
-    const palette = ['#2dd4bf', '#f59e0b', '#60a5fa', '#f472b6', '#a3e635']
-    const subject = {
-      id: crypto.randomUUID(),
+
+    await api.createSubject({
       ...subjectForm,
       color: palette[subjects.length % palette.length],
-      topics: [],
-    }
-    setSubjects((current) => [...current, subject])
-    setSelectedSubjectId(subject.id)
-    setSubjectForm({ name: '', examDate: '2026-06-30', priority: 'Medium' })
+    })
+    setSubjectForm({ name: '', examDate: formatDate(new Date()), priority: 'Medium' })
+    await loadData()
   }
 
-  function addTopic(event) {
+  async function addTopic(event) {
     event.preventDefault()
     if (!topicForm.title.trim() || !selectedSubject) return
-    setSubjects((current) =>
-      current.map((subject) =>
-        subject.id === selectedSubject.id
-          ? {
-              ...subject,
-              topics: [
-                ...subject.topics,
-                {
-                  id: crypto.randomUUID(),
-                  ...topicForm,
-                  estimatedHours: Number(topicForm.estimatedHours),
-                  completed: false,
-                },
-              ],
-            }
-          : subject,
-      ),
-    )
+
+    await api.createTopic(subjectId(selectedSubject), {
+      ...topicForm,
+      estimatedHours: Number(topicForm.estimatedHours),
+    })
     setTopicForm({ title: '', difficulty: 'Medium', estimatedHours: 2 })
+    await loadData()
   }
 
-  function toggleTopic(subjectId, topicId) {
-    setSubjects((current) =>
-      current.map((subject) =>
-        subject.id === subjectId
-          ? {
-              ...subject,
-              topics: subject.topics.map((topic) =>
-                topic.id === topicId ? { ...topic, completed: !topic.completed } : topic,
-              ),
-            }
-          : subject,
-      ),
-    )
-  }
+  async function scanSyllabus(event) {
+    const file = event.target.files?.[0]
+    if (!file) return
 
-  function deleteSubject(subjectId) {
-    setSubjects((current) => current.filter((subject) => subject.id !== subjectId))
-    if (selectedSubjectId === subjectId && subjects.length > 1) {
-      setSelectedSubjectId(subjects.find((subject) => subject.id !== subjectId).id)
+    setError('')
+    setOcrStatus('Reading screenshot...')
+    setSyllabusTopics([])
+
+    try {
+      const worker = await createWorker('eng', 1, {
+        logger: (message) => {
+          if (message.status) {
+            const progress = message.progress ? ` ${Math.round(message.progress * 100)}%` : ''
+            setOcrStatus(`${message.status}${progress}`)
+          }
+        },
+      })
+      const result = await worker.recognize(file)
+      await worker.terminate()
+      const text = result.data.text.trim()
+      setSyllabusText(text)
+      setOcrStatus(text ? 'Screenshot scanned' : 'No readable text found')
+
+      if (text) {
+        const preview = await api.previewSyllabus({ text })
+        setSyllabusTopics(preview.topics || [])
+      }
+    } catch (scanError) {
+      setError(scanError.message)
+      setOcrStatus('Scan failed')
     }
   }
 
-  function addNote(event) {
-    event.preventDefault()
-    if (!noteForm.title.trim()) return
-    setNotes((current) => [{ id: crypto.randomUUID(), ...noteForm }, ...current])
-    setNoteForm({ title: '', subject: noteForm.subject })
+  async function previewSyllabusText() {
+    if (!syllabusText.trim()) return
+    const preview = await api.previewSyllabus({ text: syllabusText })
+    setSyllabusTopics(preview.topics || [])
+  }
+
+  async function importSyllabusTopics() {
+    if (!selectedSubject || !syllabusText.trim()) return
+
+    setSyllabusImporting(true)
+    setError('')
+
+    try {
+      await api.importSyllabus({
+        subjectId: subjectId(selectedSubject),
+        text: syllabusText,
+        difficulty: topicForm.difficulty,
+        estimatedHours: Number(topicForm.estimatedHours),
+      })
+      setSyllabusText('')
+      setSyllabusTopics([])
+      setOcrStatus('')
+      await loadData()
+    } catch (importError) {
+      setError(importError.message)
+    } finally {
+      setSyllabusImporting(false)
+    }
+  }
+
+  async function toggleTopic(subject, topic) {
+    await api.updateTopic(subjectId(subject), topicId(topic), { completed: !topic.completed })
+    await loadData()
+  }
+
+  async function deleteSubject(id) {
+    await api.deleteSubject(id)
+    setSelectedSubjectId('')
+    await loadData()
+  }
+
+  async function generatePlan() {
+    const data = await api.generatePlan({ dailyStudyHours: Number(dailyHours) })
+    setPlan(data.plan)
+    const pref = await api.updatePreferences({ dailyStudyHours: Number(dailyHours) })
+    setUser(pref.user)
+  }
+
+  function logout() {
+    localStorage.removeItem(tokenKey)
+    setUser(null)
+    setSubjects([])
+    setAnalytics(null)
+    setPlan(null)
+    setSelectedSubjectId('')
+  }
+
+  if (booting) {
+    return <main className="auth-screen">Loading...</main>
+  }
+
+  if (!user) {
+    return <AuthScreen onAuth={handleAuthenticated} />
   }
 
   return (
@@ -239,11 +330,11 @@ function App() {
           <span className="brand-mark">M</span>
           <div>
             <strong>MindMap AI</strong>
-            <small>Study planner</small>
+            <small>{user.email}</small>
           </div>
         </div>
         <nav>
-          {['dashboard', 'subjects', 'planner', 'analytics', 'notes'].map((view) => (
+          {['dashboard', 'subjects', 'planner', 'analytics'].map((view) => (
             <button
               className={activeView === view ? 'active' : ''}
               key={view}
@@ -254,12 +345,10 @@ function App() {
             </button>
           ))}
         </nav>
-        <form className="auth-panel" onSubmit={handleLogin}>
-          <span>Session</span>
-          <input name="name" defaultValue={user.name} aria-label="Name" />
-          <input name="email" defaultValue={user.email} aria-label="Email" />
-          <button type="submit">Update profile</button>
-        </form>
+        <div className="auth-panel">
+          <span>{user.name}</span>
+          <button type="button" onClick={logout}>Logout</button>
+        </div>
       </aside>
 
       <main>
@@ -280,11 +369,14 @@ function App() {
               />
             </label>
             <div className="streak">
-              <span>{user.streak}</span>
+              <span>{user.streak || 0}</span>
               <small>day streak</small>
             </div>
           </div>
         </header>
+
+        {error && <p className="error-banner">{error}</p>}
+        {loading && <p className="muted">Syncing data...</p>}
 
         {activeView === 'dashboard' && (
           <section className="view-grid">
@@ -306,7 +398,7 @@ function App() {
             <div className="metric-panel">
               <span>Upcoming exam</span>
               <strong>{stats.upcoming[0]?.name || 'None'}</strong>
-              <p>{stats.upcoming[0] ? `${daysLeft(stats.upcoming[0].examDate)} days left` : 'Add a subject first.'}</p>
+              <p>{stats.upcoming[0] ? `${stats.upcoming[0].daysLeft} days left` : 'Add a subject first.'}</p>
             </div>
             <section className="wide-panel">
               <div className="section-head">
@@ -314,7 +406,7 @@ function App() {
                 <button type="button" onClick={() => setActiveView('planner')}>Open planner</button>
               </div>
               <div className="task-list">
-                {(plan[0]?.sessions || []).map((session, index) => (
+                {(plan?.days?.[0]?.sessions || []).map((session, index) => (
                   <article className="task-row" key={`${session.topic}-${index}`}>
                     <span className="task-icon">{session.type === 'Revision' ? 'R' : 'S'}</span>
                     <div>
@@ -323,6 +415,7 @@ function App() {
                     </div>
                   </article>
                 ))}
+                {!plan?.days?.[0]?.sessions?.length && <p className="empty-state">Generate a plan after adding subjects and topics.</p>}
               </div>
             </section>
             <section className="wide-panel">
@@ -334,11 +427,12 @@ function App() {
                 {stats.weakSubjects.map((subject) => (
                   <article key={subject.id}>
                     <strong>{subject.name}</strong>
-                    <span>{subject.progress}% complete</span>
+                    <span>{subject.completion}% complete</span>
                     <small>{subject.hardPending} hard topics pending</small>
                   </article>
                 ))}
               </div>
+              {!stats.weakSubjects.length && <p className="empty-state">No weak areas yet.</p>}
             </section>
           </section>
         )}
@@ -353,9 +447,9 @@ function App() {
               <div className="subject-list">
                 {subjects.map((subject) => (
                   <button
-                    className={selectedSubject?.id === subject.id ? 'subject-card selected' : 'subject-card'}
-                    key={subject.id}
-                    onClick={() => setSelectedSubjectId(subject.id)}
+                    className={subjectId(selectedSubject) === subjectId(subject) ? 'subject-card selected' : 'subject-card'}
+                    key={subjectId(subject)}
+                    onClick={() => setSelectedSubjectId(subjectId(subject))}
                     type="button"
                   >
                     <span style={{ background: subject.color }} />
@@ -364,6 +458,7 @@ function App() {
                     <em>{completion(subject)}%</em>
                   </button>
                 ))}
+                {!subjects.length && <p className="empty-state">No subjects saved yet.</p>}
               </div>
             </div>
             <div className="stack">
@@ -390,50 +485,81 @@ function App() {
                 <button type="submit">Add subject</button>
               </form>
               {selectedSubject && (
-                <form className="form-panel" onSubmit={addTopic}>
-                  <div className="section-head">
-                    <h2>Add topic</h2>
-                    <button className="danger" type="button" onClick={() => deleteSubject(selectedSubject.id)}>Delete</button>
-                  </div>
-                  <input
-                    placeholder="Topic or module"
-                    value={topicForm.title}
-                    onChange={(event) => setTopicForm({ ...topicForm, title: event.target.value })}
-                  />
-                  <select
-                    value={topicForm.difficulty}
-                    onChange={(event) => setTopicForm({ ...topicForm, difficulty: event.target.value })}
-                  >
-                    <option>Easy</option>
-                    <option>Medium</option>
-                    <option>Hard</option>
-                  </select>
-                  <input
-                    type="number"
-                    min="0.5"
-                    step="0.5"
-                    value={topicForm.estimatedHours}
-                    onChange={(event) => setTopicForm({ ...topicForm, estimatedHours: event.target.value })}
-                  />
-                  <button type="submit">Add topic</button>
-                </form>
+                <>
+                  <form className="form-panel" onSubmit={addTopic}>
+                    <div className="section-head">
+                      <h2>Add topic</h2>
+                      <button className="danger" type="button" onClick={() => deleteSubject(subjectId(selectedSubject))}>Delete</button>
+                    </div>
+                    <input
+                      placeholder="Topic or module"
+                      value={topicForm.title}
+                      onChange={(event) => setTopicForm({ ...topicForm, title: event.target.value })}
+                    />
+                    <select
+                      value={topicForm.difficulty}
+                      onChange={(event) => setTopicForm({ ...topicForm, difficulty: event.target.value })}
+                    >
+                      <option>Easy</option>
+                      <option>Medium</option>
+                      <option>Hard</option>
+                    </select>
+                    <input
+                      type="number"
+                      min="0.5"
+                      step="0.5"
+                      value={topicForm.estimatedHours}
+                      onChange={(event) => setTopicForm({ ...topicForm, estimatedHours: event.target.value })}
+                    />
+                    <button type="submit">Add topic</button>
+                  </form>
+                  <section className="form-panel">
+                    <h2>Syllabus screenshot</h2>
+                    <label className="file-picker">
+                      <input accept="image/*" type="file" onChange={scanSyllabus} />
+                      Upload screenshot
+                    </label>
+                    {ocrStatus && <p className="muted">{ocrStatus}</p>}
+                    <textarea
+                      placeholder="Extracted syllabus text"
+                      rows="6"
+                      value={syllabusText}
+                      onChange={(event) => setSyllabusText(event.target.value)}
+                    />
+                    <div className="inline-actions">
+                      <button type="button" onClick={previewSyllabusText}>Preview topics</button>
+                      <button disabled={syllabusImporting || !syllabusTopics.length} type="button" onClick={importSyllabusTopics}>
+                        {syllabusImporting ? 'Importing...' : 'Import topics'}
+                      </button>
+                    </div>
+                    {!!syllabusTopics.length && (
+                      <div className="preview-list">
+                        {syllabusTopics.slice(0, 10).map((topic) => (
+                          <span key={topic}>{topic}</span>
+                        ))}
+                        {syllabusTopics.length > 10 && <small>+{syllabusTopics.length - 10} more</small>}
+                      </div>
+                    )}
+                  </section>
+                </>
               )}
             </div>
             <div className="wide-panel full-span">
               <h2>{selectedSubject?.name || 'Topics'}</h2>
               <div className="topic-table">
                 {(selectedSubject?.topics || []).map((topic) => (
-                  <label key={topic.id} className={topic.completed ? 'topic-row done' : 'topic-row'}>
+                  <label key={topicId(topic)} className={topic.completed ? 'topic-row done' : 'topic-row'}>
                     <input
                       type="checkbox"
                       checked={topic.completed}
-                      onChange={() => toggleTopic(selectedSubject.id, topic.id)}
+                      onChange={() => toggleTopic(selectedSubject, topic)}
                     />
                     <span>{topic.title}</span>
                     <small>{topic.difficulty}</small>
                     <em>{topic.estimatedHours}h</em>
                   </label>
                 ))}
+                {selectedSubject && !selectedSubject.topics?.length && <p className="empty-state">No topics added for this subject.</p>}
               </div>
             </div>
           </section>
@@ -443,13 +569,13 @@ function App() {
           <section className="planner-list">
             <div className="section-head">
               <h2>Generated study plan</h2>
-              <span>{dailyHours} hours per day</span>
+              <button type="button" onClick={generatePlan}>Generate plan</button>
             </div>
-            {plan.map((day) => (
+            {(plan?.days || []).map((day) => (
               <article className="day-plan" key={day.label}>
                 <div>
                   <strong>{day.label}</strong>
-                  <small>{day.sessions.reduce((sum, session) => sum + session.hours, 0)} hours</small>
+                  <small>{day.totalHours} hours</small>
                 </div>
                 <div className="task-list">
                   {day.sessions.map((session, index) => (
@@ -464,6 +590,7 @@ function App() {
                 </div>
               </article>
             ))}
+            {!plan?.days?.length && <p className="empty-state">Add pending topics and generate your first plan.</p>}
           </section>
         )}
 
@@ -472,12 +599,13 @@ function App() {
             <div className="chart-panel">
               <h2>Subject completion</h2>
               {subjects.map((subject) => (
-                <div className="bar-row" key={subject.id}>
+                <div className="bar-row" key={subjectId(subject)}>
                   <span>{subject.name}</span>
                   <div><i style={{ width: `${completion(subject)}%`, background: subject.color }} /></div>
                   <em>{completion(subject)}%</em>
                 </div>
               ))}
+              {!subjects.length && <p className="empty-state">No analytics until you add subjects.</p>}
             </div>
             <div className="chart-panel">
               <h2>Study workload</h2>
@@ -492,44 +620,8 @@ function App() {
                 {stats.upcoming.map((subject) => (
                   <article key={subject.id}>
                     <strong>{subject.name}</strong>
-                    <span>{daysLeft(subject.examDate)} days</span>
+                    <span>{subject.daysLeft} days</span>
                     <small>{subject.priority} priority</small>
-                  </article>
-                ))}
-              </div>
-            </div>
-          </section>
-        )}
-
-        {activeView === 'notes' && (
-          <section className="two-column">
-            <form className="form-panel" onSubmit={addNote}>
-              <h2>Add notes</h2>
-              <input
-                placeholder="File name or material title"
-                value={noteForm.title}
-                onChange={(event) => setNoteForm({ ...noteForm, title: event.target.value })}
-              />
-              <select
-                value={noteForm.subject}
-                onChange={(event) => setNoteForm({ ...noteForm, subject: event.target.value })}
-              >
-                {subjects.map((subject) => (
-                  <option key={subject.id}>{subject.name}</option>
-                ))}
-              </select>
-              <button type="submit">Save material</button>
-            </form>
-            <div className="wide-panel">
-              <h2>Study materials</h2>
-              <div className="task-list">
-                {notes.map((note) => (
-                  <article className="task-row" key={note.id}>
-                    <span className="task-icon">N</span>
-                    <div>
-                      <strong>{note.title}</strong>
-                      <small>{note.subject}</small>
-                    </div>
                   </article>
                 ))}
               </div>
