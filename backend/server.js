@@ -1,14 +1,15 @@
 const express = require("express");
 const dotenv = require("dotenv");
 const cors = require("cors");
-const mongoose = require("mongoose");
 
-const authRoutes = require("./src/routes/authRoutes");
-const subjectRoutes = require("./src/routes/subjectRoutes");
-const plannerRoutes = require("./src/routes/plannerRoutes");
-const analyticsRoutes = require("./src/routes/analyticsRoutes");
+const connectDB = require("./config/db");
+const authRoutes = require("./routes/authRoutes");
+const subjectRoutes = require("./routes/subjectRoutes");
+const plannerRoutes = require("./routes/plannerRoutes");
+const analyticsRoutes = require("./routes/analyticsRoutes");
 
 dotenv.config();
+connectDB();
 
 const app = express();
 
@@ -40,16 +41,7 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 5000;
-const MONGO_URI = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/mindmap_ai";
 
-mongoose
-  .connect(MONGO_URI)
-  .then(() => {
-    app.listen(PORT, () => {
-      console.log(`MindMap AI API running on port ${PORT}`);
-    });
-  })
-  .catch((error) => {
-    console.error("MongoDB connection failed:", error.message);
-    process.exit(1);
-  });
+app.listen(PORT, () => {
+  console.log(`MindMap AI API running on port ${PORT}`);
+});

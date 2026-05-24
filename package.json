@@ -1,0 +1,10 @@
+{
+  "name": "mindmap-ai-system",
+  "private": true,
+  "scripts": {
+    "backend": "npm --prefix backend run dev",
+    "backend:start": "npm --prefix backend start",
+    "frontend": "npm --prefix frontend run dev",
+    "frontend:build": "npm --prefix frontend run build"
+  }
+}
