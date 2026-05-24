@@ -49,6 +49,11 @@
   gap: 12px;
 }
 
+.login-hint {
+  margin-bottom: 16px;
+  color: #aab4c8;
+}
+
 .sidebar {
   min-height: 100vh;
   padding: 24px;
@@ -275,6 +280,19 @@ textarea {
   font-size: 13px;
 }
 
+.ai-output {
+  max-height: 360px;
+  overflow: auto;
+  white-space: pre-wrap;
+  border-radius: 8px;
+  margin: 12px 0 0;
+  padding: 14px;
+  background: rgba(4, 8, 15, 0.55);
+  color: #eef2ff;
+  font: inherit;
+  line-height: 1.55;
+}
+
 select option {
   color: #0f172a;
 }
@@ -312,6 +330,12 @@ select option {
 .two-column {
   display: grid;
   grid-template-columns: minmax(0, 1.45fr) minmax(300px, 0.8fr);
+  gap: 18px;
+}
+
+.ai-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 18px;
 }
 
@@ -568,6 +592,7 @@ select option {
 
   .view-grid,
   .analytics-grid,
+  .ai-grid,
   .two-column {
     grid-template-columns: 1fr;
   }

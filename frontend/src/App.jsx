@@ -7,11 +7,11 @@ const tokenKey = 'mindmap_token'
 const palette = ['#2dd4bf', '#f59e0b', '#60a5fa', '#f472b6', '#a3e635']
 
 function subjectId(subject) {
-  return subject._id || subject.id
+  return subject?._id || subject?.id || ''
 }
 
 function topicId(topic) {
-  return topic._id || topic.id
+  return topic?._id || topic?.id || ''
 }
 
 function formatDate(date) {
@@ -34,8 +34,7 @@ function completion(subject) {
 }
 
 function AuthScreen({ onAuth }) {
-  const [mode, setMode] = useState('login')
-  const [form, setForm] = useState({ name: '', email: '', password: '' })
+  const [form, setForm] = useState({ email: 'admin@mindmap.com', password: 'admin123' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -45,14 +44,10 @@ function AuthScreen({ onAuth }) {
     setLoading(true)
 
     try {
-      const payload =
-        mode === 'register'
-          ? form
-          : {
-              email: form.email,
-              password: form.password,
-            }
-      const data = mode === 'register' ? await api.register(payload) : await api.login(payload)
+      const data = await api.login({
+        email: form.email,
+        password: form.password,
+      })
       localStorage.setItem(tokenKey, data.token)
       onAuth(data.user)
     } catch (authError) {
@@ -72,22 +67,8 @@ function AuthScreen({ onAuth }) {
             <small>Study planner</small>
           </div>
         </div>
-        <div className="auth-tabs">
-          <button className={mode === 'login' ? 'active' : ''} type="button" onClick={() => setMode('login')}>
-            Login
-          </button>
-          <button className={mode === 'register' ? 'active' : ''} type="button" onClick={() => setMode('register')}>
-            Register
-          </button>
-        </div>
+        <p className="login-hint">Use admin@mindmap.com / admin123</p>
         <form className="auth-form" onSubmit={submitAuth}>
-          {mode === 'register' && (
-            <input
-              placeholder="Name"
-              value={form.name}
-              onChange={(event) => setForm({ ...form, name: event.target.value })}
-            />
-          )}
           <input
             placeholder="Email"
             type="email"
@@ -102,7 +83,7 @@ function AuthScreen({ onAuth }) {
           />
           {error && <p className="error-text">{error}</p>}
           <button disabled={loading} type="submit">
-            {loading ? 'Please wait...' : mode}
+            {loading ? 'Please wait...' : 'Login'}
           </button>
         </form>
       </section>
@@ -135,6 +116,11 @@ function App() {
   const [syllabusTopics, setSyllabusTopics] = useState([])
   const [ocrStatus, setOcrStatus] = useState('')
   const [syllabusImporting, setSyllabusImporting] = useState(false)
+  const [notesTopic, setNotesTopic] = useState('')
+  const [aiNotes, setAiNotes] = useState('')
+  const [doubtQuestion, setDoubtQuestion] = useState('')
+  const [doubtAnswer, setDoubtAnswer] = useState('')
+  const [aiLoading, setAiLoading] = useState('')
 
   const selectedSubject = subjects.find((subject) => subjectId(subject) === selectedSubjectId) || subjects[0]
 
@@ -164,7 +150,7 @@ function App() {
       setSubjects(loadedSubjects)
       setAnalytics(analyticsData)
       setPlan(planData.plan)
-      setSelectedSubjectId((current) => current || subjectId(loadedSubjects[0]) || '')
+      setSelectedSubjectId((current) => current || subjectId(loadedSubjects[0]))
     } catch (loadError) {
       setError(loadError.message)
     } finally {
@@ -285,6 +271,44 @@ function App() {
       setError(importError.message)
     } finally {
       setSyllabusImporting(false)
+    }
+  }
+
+  async function generateNotes() {
+    if (!selectedSubject) return
+
+    setAiLoading('notes')
+    setError('')
+
+    try {
+      const data = await api.generateNotes({
+        subjectId: subjectId(selectedSubject),
+        topicTitle: notesTopic,
+      })
+      setAiNotes(data.notes || '')
+    } catch (notesError) {
+      setError(notesError.message)
+    } finally {
+      setAiLoading('')
+    }
+  }
+
+  async function solveDoubt() {
+    if (!selectedSubject || !doubtQuestion.trim()) return
+
+    setAiLoading('doubt')
+    setError('')
+
+    try {
+      const data = await api.solveDoubt({
+        subjectId: subjectId(selectedSubject),
+        question: doubtQuestion,
+      })
+      setDoubtAnswer(data.answer || '')
+    } catch (doubtError) {
+      setError(doubtError.message)
+    } finally {
+      setAiLoading('')
     }
   }
 
@@ -562,6 +586,40 @@ function App() {
                 {selectedSubject && !selectedSubject.topics?.length && <p className="empty-state">No topics added for this subject.</p>}
               </div>
             </div>
+            {selectedSubject && (
+              <div className="ai-grid full-span">
+                <section className="wide-panel">
+                  <div className="section-head">
+                    <h2>AI notes</h2>
+                    <button disabled={aiLoading === 'notes'} type="button" onClick={generateNotes}>
+                      {aiLoading === 'notes' ? 'Generating...' : 'Generate'}
+                    </button>
+                  </div>
+                  <select value={notesTopic} onChange={(event) => setNotesTopic(event.target.value)}>
+                    <option value="">Overall subject</option>
+                    {(selectedSubject.topics || []).map((topic) => (
+                      <option key={topicId(topic)} value={topic.title}>{topic.title}</option>
+                    ))}
+                  </select>
+                  {aiNotes ? <pre className="ai-output">{aiNotes}</pre> : <p className="empty-state">Generate notes from this subject and its topics.</p>}
+                </section>
+                <section className="wide-panel">
+                  <div className="section-head">
+                    <h2>Doubt solving</h2>
+                    <button disabled={aiLoading === 'doubt'} type="button" onClick={solveDoubt}>
+                      {aiLoading === 'doubt' ? 'Solving...' : 'Ask'}
+                    </button>
+                  </div>
+                  <textarea
+                    placeholder="Type your doubt"
+                    rows="5"
+                    value={doubtQuestion}
+                    onChange={(event) => setDoubtQuestion(event.target.value)}
+                  />
+                  {doubtAnswer ? <pre className="ai-output">{doubtAnswer}</pre> : <p className="empty-state">Ask a doubt using this subject as context.</p>}
+                </section>
+              </div>
+            )}
           </section>
         )}
 

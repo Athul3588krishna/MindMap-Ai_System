@@ -1,8 +1,16 @@
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 
+const hardcodedUser = {
+  _id: process.env.HARDCODED_USER_ID || "65f000000000000000000001",
+  name: process.env.HARDCODED_USER_NAME || "MindMap Student",
+  email: process.env.HARDCODED_USER_EMAIL || "student@mindmap.local",
+  dailyStudyHours: 3,
+  streak: 0,
+};
+
 function createToken(user) {
-  return jwt.sign({ id: user._id }, process.env.JWT_SECRET || "mindmap-dev-secret", {
+  return jwt.sign({ id: user._id, hardcoded: user.hardcoded || false }, process.env.JWT_SECRET || "mindmap-dev-secret", {
     expiresIn: "7d",
   });
 }
@@ -40,6 +48,14 @@ exports.register = async (req, res, next) => {
 exports.login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
+    const hardcodedEmail = process.env.HARDCODED_LOGIN_EMAIL || "admin@mindmap.com";
+    const hardcodedPassword = process.env.HARDCODED_LOGIN_PASSWORD || "admin123";
+
+    if (email === hardcodedEmail && password === hardcodedPassword) {
+      const user = { ...hardcodedUser, email: hardcodedEmail, hardcoded: true };
+      return res.json({ token: createToken(user), user: publicUser(user) });
+    }
+
     const user = await User.findOne({ email }).select("+password");
 
     if (!user || !(await user.comparePassword(password))) {

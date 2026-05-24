@@ -31,11 +31,6 @@ export const api = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
-  register: (payload) =>
-    request("/auth/register", {
-      method: "POST",
-      body: JSON.stringify(payload),
-    }),
   me: () => request("/auth/me"),
   updatePreferences: (payload) =>
     request("/auth/preferences", {
@@ -76,6 +71,16 @@ export const api = {
     }),
   importSyllabus: (payload) =>
     request("/syllabus/import", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  generateNotes: (payload) =>
+    request("/ai/notes", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  solveDoubt: (payload) =>
+    request("/ai/doubt", {
       method: "POST",
       body: JSON.stringify(payload),
     }),

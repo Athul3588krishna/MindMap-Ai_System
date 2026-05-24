@@ -3,14 +3,15 @@ const dotenv = require("dotenv");
 const cors = require("cors");
 const path = require("path");
 
+dotenv.config({ path: path.join(__dirname, ".env") });
+
 const connectDB = require("./config/db");
 const authRoutes = require("./routes/authRoutes");
 const subjectRoutes = require("./routes/subjectRoutes");
 const plannerRoutes = require("./routes/plannerRoutes");
 const analyticsRoutes = require("./routes/analyticsRoutes");
 const syllabusRoutes = require("./routes/syllabusRoutes");
-
-dotenv.config({ path: path.join(__dirname, ".env") });
+const aiRoutes = require("./routes/aiRoutes");
 
 const app = express();
 
@@ -30,6 +31,7 @@ app.use("/api/subjects", subjectRoutes);
 app.use("/api/planner", plannerRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/syllabus", syllabusRoutes);
+app.use("/api/ai", aiRoutes);
 
 app.use((req, res) => {
   res.status(404).json({ message: "Route not found" });
